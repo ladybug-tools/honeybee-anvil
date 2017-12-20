@@ -1,0 +1,154 @@
+// Note: Please adhere to the style guidelines as described here:
+// https://developers.google.com/protocol-buffers/docs/style
+
+// Note: This file does not currently adhere to style guidelines
+
+syntax = "proto3";
+package Autodesk.Anvil.Protos;
+option go_package = "protos";
+
+/**
+* Each Anvil microservice has a dedicated Service Manager.
+* Services interact with the platform by making calls 
+* through their Service Manager.
+* For clients that need to connect to the Service Manager, they can find out the IP and port of the service by 
+* inspecting the environment variable `SM_ADDR`. 
+*
+* For example:
+*
+* <span><b>Shell:</b><code>env | grep SM_ADDR</code><br/>
+* <b>Go:</b><code>addr := os.Getenv(“SM_ADDR”)</code><br/>
+* <b>C:</b><code>char* addr = getenv(“SM_ADDR”)</code></
+* span>
+*
+* You can access the Service Manager proto file on the 
+* alpha, beta, and production 
+* environments using the following links:
+* 
+* 
+* * [api.anvil.autodesk.com/pkgs/autodesk/anvil/1.0/protos/servicemanager.proto](
+* http://api.anvil.autodesk.com/pkgs/autodesk/anvil/1.0/protos/servicemanager.proto)
+* 
+* * [beta-api.anvil.autodesk.com/pkgs/autodesk/anvil/1.0/protos
+* servicemanager.proto](
+* http://beta-api.anvil.autodesk.com/pkgs/autodesk/anvil/1.0/protos/
+* servicemanager.proto)
+*
+* * [alpha-api.anvil.autodesk.com/pkgs/autodesk/anvil/1.0/protos/servicemanager.proto](
+* http://alpha-api.anvil.autodesk.com/pkgs/autodesk/anvil/1.0/protos/
+* servicemanager.proto)
+*
+* 
+*/
+service ServiceManager {
+   /**
+     * Reserves one or more than one instances of a microservice process based on the microservice identifier.
+     * Callers must invoke Release when done.
+     *
+     * The microservice identifier is written slightly different from the docker image name and tag. 
+     * The colon and slash separators and dots are replaced with hyphens in the identifier name.
+     *
+     * For example, the identifier for `sparkplatform/test-service:1.0.0` will be `sparkplatform-test-service-1-0-0.`
+     */
+    rpc Reserve(ReserveRequest) returns (ReserveResponse);
+   
+    /**
+    *Releases one or more than one of previously reserved instances of a microservice. 
+    */
+    rpc Release(ReleaseRequest) returns (ReleaseResponse);
+
+    // Creates a Broker session under which to reserve services that will share
+    // session context.
+    rpc BeginSession(BeginSessionRequest) returns (BeginSessionResponse);
+
+    // Ends a Broker session.
+    rpc EndSession(EndSessionRequest) returns (EndSessionResponse);
+
+    /**
+     *Returns the authorization token for the current user.
+     */
+    rpc AuthToken(AuthTokenRequest) returns (AuthTokenResponse);
+
+    /**Returns metadata about the session for the current user.*/
+    
+    rpc SessionMetadata(SessionMetadataRequest) returns (SessionMetadataResponse);
+
+    /**
+    * Provides a discovery mechanism for clients so they can look up a service
+    * based on a name.
+    * For example, `Autodesk.Anvil.Protos.DataManager` and
+    * `Autodesk.Anvil.Protos.MeteringHelium` need not be reserved, and they
+    * return the IP and port of the service.
+    * Eventually, we want to provide lookup capabilities so clients can look up
+    * reservation information for services implemented by microservices.
+    *
+    * The Lookup facility allows for session scoped lookups as well, which allows
+    * reservers to control reserved service's discovery.  By passing a JSON map
+    * named "LookupMap" in the SessionMetadata, the Lookup facility will return
+    * those matches first (allows for adding or even overriding default Lookups).
+    */
+    rpc Lookup(LookupRequest) returns (LookupResponse);
+}
+
+// A broker token may be a ServiceManager identity or a session
+message Token {
+    string token = 1;               /// tokens are stored as strings
+}
+
+message ReserveRequest {
+    string serviceType = 1;         ///For example, `sparkplatform-sample-service`
+    uint64 workerCount = 2;         /// Count of the workers.
+    Token session = 3;              /// optional: If "", uses the default identity
+}
+
+message ReserveResponse {
+    repeated string workers = 1;    /// For example, `[10.2.34.4:50001, ..., 10.2.43.1:50001]`
+}
+
+message ReleaseRequest {
+    repeated string workers = 1;    /// For example, `[10.2.34.4:50001, ..., 10.2.43.1:50001]`
+    Token session = 2;              /// optional: If "", uses the default identity
+}
+
+message ReleaseResponse {
+}
+
+message BeginSessionRequest {
+	map<string, string> sessionDecorators = 1;
+	Token session = 2;             /// optional: If "", uses the default identity
+}
+
+message BeginSessionResponse {
+    Token session = 1;
+}
+
+message EndSessionRequest {
+    Token session = 1;
+}
+
+message EndSessionResponse {
+}
+
+message AuthTokenRequest {
+    string scope = 1;               /// Scope in the authorization token request  
+}
+
+message AuthTokenResponse {
+    string token = 1;               /// Authorization token returned by the key passed in AuthTokenRequest
+}
+
+message SessionMetadataRequest {
+    repeated string keys = 1;       /// Keys in the session metadata request
+}
+
+message SessionMetadataResponse {
+    repeated string values = 1;     /// Values returned by the key passed in SessionMetadataRequest
+}
+
+message LookupRequest {
+    string service_name = 1;        /// Service name for the lookup request. For example, `Autodesk.Anvil.Protos.DataManager` or `Autodesk.Anvil.Protos.MeteringHelium`
+}
+
+message LookupResponse {
+    string address = 1;             /// Address of the lookup response. For example, `10.2.34.4:5234`
+}

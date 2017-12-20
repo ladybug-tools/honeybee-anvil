@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package honeybee.recipe;
+
+service RunRecipe {
+    rpc run (SolarAccessRecipeGridBased) returns (Result);
+}
+
+message SolarAccessRecipeGridBased {
+    int32 id = 1; // I'm not sure if this is needed
+    Location location = 2; // a honeybee location - see below
+    repeated float hoys = 3; // list of hours of the year
+    repeated HBSurface surfaces = 4; // list of honeybee surfaces
+    repeated AnalysisGrid analysis_grids = 5; // list of analysis grids
+}
+
+// {"id": 0, "hoys": [12, 13, 14], "analysis_grids": [[{"location": {"x": 0, "y": 0, "z": 0}, "direction": {"x": 0, "y": 0, "z": 1}}]]}
+
+// location
+message Location {
+  string city = 1;
+  float latitude = 2;
+  float longitude = 3;
+  float time_zone = 4;
+  float elevation = 5;
+}
+
+// XYZ - point and vector
+message XYZ {
+  float x = 1;
+  float y = 2;
+  float z = 3;
+}
+
+// A collection of XYZs
+message XYZCollection {
+  repeated XYZ xyzs = 1;
+}
+// Analysis grid - sensors
+message AnalysisPoint {
+  XYZ location = 1;
+  XYZ direction = 2;
+}
+
+message AnalysisGrid {
+  repeated AnalysisPoint analysis_points = 1;
+}
+
+// geometry
+message HBSurface {
+  string name = 1;
+  int32 surface_type = 2;  // 0: wall, 5: window
+  repeated XYZCollection vertices = 3;
+}
+
+message RadianceResult {
+  float hoy = 1;
+  int32 total = 2;
+  int32 direct = 3;
+}
+
+// result
+message Result {
+  string job_id =1;
+  bool success = 2;
+  repeated RadianceResult values = 3;
+  string log_info = 4;
+}

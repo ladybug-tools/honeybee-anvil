@@ -1,0 +1,417 @@
+// Note: Please adhere to the style guidelines as described here:
+// https://developers.google.com/protocol-buffers/docs/style
+
+syntax = "proto3";
+package Autodesk.Anvil.Protos;
+option go_package = "protos";
+
+message DescriptionRequest {}
+message DescriptionResponse {
+    string company_name = 1;                /// Creators of the microservice.
+    string service_name = 2;                /// Name of the microservice.
+    string service_description = 3;         /// Description of the microservice.
+
+    /// A collection of application-specific metadata, which can be properties that are used by the application or its clients.
+    /// Forge High Frequency Data Manager (HFDM), for example, uses this map to define the pset TUID, which is necessary for the Resource Manager to map psets to controller services.
+    map<string, string> application_metadata = 4; 
+}
+
+message ProtosRequest {}
+message ProtosResponse {
+    repeated string file_paths = 1;             ///  Valid file paths of the protobuf files.
+}
+
+message ExamplesRequest {}
+message ExamplesResponse {
+    repeated string file_paths = 1;             ///  Valid file paths of the examples.
+}
+
+message TestsRequest {}
+message TestsResponse {
+    repeated string file_paths = 1;             ///  Valid file paths of the tests.
+}
+
+message GuidesRequest {}
+message GuidesResponse {
+    repeated string file_paths = 1;             ///  Valid file paths of the guides.
+}
+
+message FileRequest {
+    repeated string paths = 1;                  /// Valid file paths.
+}
+message FileResponse {
+    repeated File files = 1;                    ///  Valid file objects that consists of multiple file paths and their contents.
+}
+message File {
+    string path = 1;                            ///  Valid file path.
+    bytes contents = 2;                         ///  File content.
+}
+
+message StatusRequest {}                        /// Requests the status of a service.
+message StatusResponse {                        /// Reports the status of a service.
+    enum Status {                               
+        READY = 0;                              /// Status of `READY` indicates this microservice is ready to accept reservations.                               
+        BUSY = 1;                               /// Status of `BUSY` indicates microservice is initializing or is currently busy in performing some housekeeping task such as downloading some files.                              
+        ERROR = 100;                            /// Status of `ERROR` indicates error that may have accured
+    }
+    Status status = 1;
+}
+  
+message ReservationAddedRequest {               /// `ReservationAddedRequest` method is called by the Service Broker of service B when it is reserved by service A. When Service Broker calls `ReservationAddedRequest` on Service Manager, it passes all the session decorators that the user sent while creating a session.
+    bytes user_data = 1;                        /// Optional user data specific to the microservice.   
+    map<string, string> session_decorators = 2; /// Session decorators string for the reservation request. Session decorators are copied from the parent session to the child session.  
+    string reservation_token = 3;               /// Broker assigned ID for this reservation. 
+    string session_id = 4;                      /// Session in which one microservice is reserved by another microservice. The Service Broker has this information.  
+}
+
+message ReservationAddedResponse {
+    enum Status {                               /// Returns a response whether service could be reserved successfully. 
+        OK = 0;                                 /// Status of `OK` indicates reservation is processed successfully.
+        PERMISSION_DENIED = 1;                  /// Status of `PERMISSION_DENIED` indicates user does not have any credits, that is, metering is over.
+        BUSY = 2;                               /// Status of `BUSY` indicates microservice is busy because microservice is initializing or is currently busy performing some housekeeping task such as downloading some files.  
+    }
+    Status status = 1;
+}
+
+message ReservationReleasedRequest {             
+    string reservation_token = 1;               /// Reservation token retrieved from ReservationAddedRequest.
+}
+
+message ReservationReleasedResponse {
+    enum Status {                               /// Returns a response whether service could be released successfully. 
+        OK = 0;                                 /// Status of `OK` indicates the service is released successfully.
+        RESTART = 1;                            /// Status of `RESTART` indicates the service is restarted successfully. After a service is released, if a service does not want to be reused by making another reservation, it can return this code. Anvil kills that instance of the service and replaces that with a new instance.  
+    }
+    Status status = 1;
+}
+
+/**
+* A microservice is called an Anvil microservice if it starts a gRPC server, serves up the 
+* `Autodesk.Anvil.Protos.Reservable` and `Autodesk.Anvil.Protos.Readiness` interfaces,
+*  and implements at least the required RPCs.
+*  
+* Every microservice that wants to be a part of Anvil must implement the
+* `Autodesk.Anvil.Protos.Microservice` gRPC service on port 50001. 
+* 
+* You can access the `Autodesk.Anvil.Protos.Reservable` gRPC service file on the alpha, beta, and
+* production environments using the following links:
+*
+* * [api.anvil.autodesk.com/pkgs/autodesk/anvil/1.0/protos/service.proto](
+* http://api.anvil.autodesk.com/pkgs/autodesk/anvil/1.0/protos/service.proto)
+* 
+* * [beta-api.anvil.autodesk.com/pkgs/autodesk/anvil/1.0/protos/service.proto](
+* http://beta-api.anvil.autodesk.com/pkgs/autodesk/anvil/1.0/protos/
+* service.proto)
+*
+* * [alpha-api.anvil.autodesk.com/pkgs/autodesk/anvil/1.0/protos/service.proto](
+* http://alpha-api.anvil.autodesk.com/pkgs/autodesk/anvil/1.0/protos/
+* service.proto)
+*
+*/
+service Reservable {
+
+    /**
+     * <div class="required">required</div>
+     * Given one or more than one paths to files, return the contents of the files.
+     * The paths of the files returned must match the paths of files requested.
+     * This must be implemented to return the file content for the Protos API.
+     */
+    rpc Files (FileRequest) returns (FileResponse);
+
+    /**
+     * <div class="recommended">recommended</div>
+     * This RPC is necessary for the gRPC interface of a service to be
+     * published by the api-server. Return one or more paths of `*.proto` files that can be
+     * requested by making a subsequent call to the `Files` API.
+     * Protobufs are a platform and language-independent definition
+     * of RPC calls that are described in more detail here:
+     *
+     *     https://developers.google.com/protocol-buffers
+     *
+     * It is strongly suggested that the style guide for protocol buffers
+     * is something that all microservices comply with for consistency:
+     *
+     *     https://developers.google.com/protocol-buffers/docs/style
+     *
+     * All of the \*.proto files must reside in the same folder. They are
+     * allowed to include each other or another \*.proto file by a URL.
+     * For example, if a service wants to support the mesh.proto
+     * currency, it should include it using this path:
+     *
+     *   ```anvil.autodesk.com/pkgs/autodesk/anvil/1.0/protos/mesh.proto```
+     *
+     * If the service attempts to reference a copy of mesh.proto, or
+     * serve it from a relative directory such as `./3rd/mesh.proto`, it
+     * will be impossible for the system to understand the intention
+     * behind the imported path.
+     */
+    rpc Protos (ProtosRequest) returns (ProtosResponse);
+
+    /**
+     * <div class="recommended">recommended</div>
+     * Returns the paths of files that can be requested
+     * by making a subsequent call to the Files API, which demonstrates
+     * how to use this service to help onboard new users quickly. The
+     * examples are available for users to see in the Playground under the
+     * Examples menu. They are Go programs that use the
+     * APIs provided by the service.
+     *
+     * Only files with `*.go` or `*.html` extensions are displayed in
+     * the Playground. Files with a `*.go` extension are displayed
+     * in the code editor, while `*.html` files are displayed in an
+     * HTML iframe so that they can include other resources as needed.
+     * If a `*.html` file includes additional resources such as `*.js` or `*.css`
+     * files, then this API must return the list of files that are
+     * included by top-level HTML files as well.
+     *
+     * An example should reference itself in the imports section using:
+     *
+     *     import "anvil.autodesk.com/self"
+     *
+     * If the example relies on other services, it should reference
+     * them using:
+     *
+     *     import "anvil.autodesk.com/pkgs/services/<permalink>"
+     *
+     */
+    rpc Examples (ExamplesRequest) returns (ExamplesResponse);
+
+    /**
+     * <div class="recommended">recommended</div>
+     * Returns the paths of files that can be requested
+     * by making a subsequent call to Files API, which should provide broad
+     * test coverage for the APIs available in this test service.
+     * When the service is added to the platform, all the tests are
+     * run as a litmus test and as a pre-requisite before the service is
+     * activated for all the users. Tests can be run routinely
+     * to verify the health of the service. A test should reference
+     * itself in the imports section using:
+     *
+     *     import "anvil.autodesk.com/self"
+     *
+     * Sometimes it is easier to have the Tests as a subset of
+     * the Examples, or vice-versa.  Ideally, tests would not reference
+     * other microservices since they might not be available when
+     * run which would cause a failure that might not be desired.
+     */
+    rpc Tests (TestsRequest) returns (TestsResponse);
+
+    /**
+     * <div class="recommended">recommended</div>
+     * Sometimes example programs are not the best way
+     * to help onboard new users. This allows a microservice to
+     * provide one or more paths of Markdown (*.md) files that can be
+     * requested by making a subsequent call to Files API that describes
+     * high-level concepts and information about the service.
+     *
+     * The Guides are available in the Playground now under the
+     * Guides menu.
+     */
+    rpc Guides (GuidesRequest) returns (GuidesResponse);
+
+    /**
+     * <div class="optional">optional</div>
+     * The `ReservationAdded` RPC is called by the Service Manager when a
+     * service gets reserved. The request contains session information
+     * and a per reserve call user-data field.
+     */
+    rpc ReservationAdded (ReservationAddedRequest) returns (ReservationAddedResponse);
+
+    /**
+     * <div class="optional">optional</div>
+     * The `ReservationReleased` RPC is called by the Service Manager
+     * when a service is released. This RPC can be used as a clean-up
+     * routine so that the instance can be recycled to another
+     * reservation. If the method returns `RESTART` status, the
+     * service is killed at release, resulting in a service that does not
+     * get recycled.
+     */
+    rpc ReservationReleased (ReservationReleasedRequest) returns (ReservationReleasedResponse);
+}
+
+/**
+*
+* Every microservice and plugin that wants to be a part of Anvil must implement the
+* `Autodesk.Anvil.Protos.Readiness` gRPC service on port 50001.
+*
+* You can access the `Autodesk.Anvil.Protos.Readiness` gRPC service file on the alpha, beta, and
+* production environments using the following links:
+*
+* * [api.anvil.autodesk.com/pkgs/autodesk/anvil/1.0/protos/service.proto](
+* http://api.anvil.autodesk.com/pkgs/autodesk/anvil/1.0/protos/service.proto)
+*
+* * [beta-api.anvil.autodesk.com/pkgs/autodesk/anvil/1.0/protos/service.proto](
+* http://beta-api.anvil.autodesk.com/pkgs/autodesk/anvil/1.0/protos/
+* service.proto)
+*
+* * [alpha-api.anvil.autodesk.com/pkgs/autodesk/anvil/1.0/protos/service.proto](
+* http://alpha-api.anvil.autodesk.com/pkgs/autodesk/anvil/1.0/protos/
+* service.proto)
+*
+*/
+service Readiness {
+
+    /**
+     * <div class="required">required</div>
+     * Must provide description information about the microservice.
+     * This information is displayed in the Playground under the Examples, Guides
+     * and APIs drop-down list.
+     */
+    rpc Description (DescriptionRequest) returns (DescriptionResponse);
+
+    /**
+     * <div class="required">required</div>
+     * This API is mandatory and must return `READY` or `BUSY`
+     * value in the response. When a microservice is started, it returns `BUSY` status
+     * if it is not yet ready to accept reservations. But, it should start its
+     * server promptly and be ready to handle the `Status()` RPC.
+     *
+     * If the Anvil platform cannot successfully receive a `Status()` response
+     * within a grace period, the service instance will be terminated.
+     */
+    rpc Status (StatusRequest) returns (StatusResponse);
+}
+
+/**
+* Deprecated: Replaced by interfaces Reservable and Readiness
+*/
+service Microservice {
+
+    /**
+     * <div class="required">required</div>
+     * Must provide description information about the microservice.
+     * This information is displayed in the Playground under the Examples, Guides
+     * and APIs drop-down list.
+     */
+    rpc Description (DescriptionRequest) returns (DescriptionResponse);
+
+    /**
+     * <div class="required">required</div>
+     * This API is mandatory and must return `READY` or `BUSY`
+     * value in the response. When a microservice is started, it returns `BUSY` status
+     * if it is not yet ready to accept reservations. But, it should start its
+     * server promptly and be ready to handle the `Status()` RPC.
+     *
+     * If the Anvil platform cannot successfully receive a `Status()` response
+     * within a grace period, the service instance will be terminated.
+     */
+    rpc Status (StatusRequest) returns (StatusResponse);
+
+    /**
+     * <div class="required">required</div>
+     * Given one or more than one paths to files, return the contents of the files.
+     * The paths of the files returned must match the paths of files requested.
+     * This must be implemented to return the file content for the Protos API.
+     */
+    rpc Files (FileRequest) returns (FileResponse);
+
+    /**
+     * <div class="recommended">recommended</div>
+     * This RPC is necessary for the gRPC interface of a service to be
+     * published by the api-server. Return one or more paths of `*.proto` files that can be
+     * requested by making a subsequent call to the `Files` API.
+     * Protobufs are a platform and language-independent definition
+     * of RPC calls that are described in more detail here:
+     *
+     *     https://developers.google.com/protocol-buffers
+     *
+     * It is strongly suggested that the style guide for protocol buffers
+     * is something that all microservices comply with for consistency:
+     *
+     *     https://developers.google.com/protocol-buffers/docs/style
+     *
+     * All of the \*.proto files must reside in the same folder. They are
+     * allowed to include each other or another \*.proto file by a URL.
+     * For example, if a service wants to support the mesh.proto
+     * currency, it should include it using this path:
+     *
+     *   ```anvil.autodesk.com/pkgs/autodesk/anvil/1.0/protos/mesh.proto```
+     *
+     * If the service attempts to reference a copy of mesh.proto, or
+     * serve it from a relative directory such as `./3rd/mesh.proto`, it
+     * will be impossible for the system to understand the intention
+     * behind the imported path.
+     */
+    rpc Protos (ProtosRequest) returns (ProtosResponse);
+
+    /**
+     * <div class="recommended">recommended</div>
+     * Returns the paths of files that can be requested
+     * by making a subsequent call to the Files API, which demonstrates
+     * how to use this service to help onboard new users quickly. The
+     * examples are available for users to see in the Playground under the
+     * Examples menu. They are Go programs that use the
+     * APIs provided by the service.
+     *
+     * Only files with `*.go` or `*.html` extensions are displayed in
+     * the Playground. Files with a `*.go` extension are displayed
+     * in the code editor, while `*.html` files are displayed in an
+     * HTML iframe so that they can include other resources as needed.
+     * If a `*.html` file includes additional resources such as `*.js` or `*.css`
+     * files, then this API must return the list of files that are
+     * included by top-level HTML files as well.
+     *
+     * An example should reference itself in the imports section using:
+     *
+     *     import "anvil.autodesk.com/self"
+     *
+     * If the example relies on other services, it should reference
+     * them using:
+     *
+     *     import "anvil.autodesk.com/pkgs/services/<permalink>"
+     *
+     */
+    rpc Examples (ExamplesRequest) returns (ExamplesResponse);
+
+    /**
+     * <div class="recommended">recommended</div>
+     * Returns the paths of files that can be requested
+     * by making a subsequent call to Files API, which should provide broad
+     * test coverage for the APIs available in this test service.
+     * When the service is added to the platform, all the tests are
+     * run as a litmus test and as a pre-requisite before the service is
+     * activated for all the users. Tests can be run routinely
+     * to verify the health of the service. A test should reference
+     * itself in the imports section using:
+     *
+     *     import "anvil.autodesk.com/self"
+     *
+     * Sometimes it is easier to have the Tests as a subset of
+     * the Examples, or vice-versa.  Ideally, tests would not reference
+     * other microservices since they might not be available when
+     * run which would cause a failure that might not be desired.
+     */
+    rpc Tests (TestsRequest) returns (TestsResponse);
+
+    /**
+     * <div class="recommended">recommended</div>
+     * Sometimes example programs are not the best way
+     * to help onboard new users. This allows a microservice to
+     * provide one or more paths of Markdown (*.md) files that can be
+     * requested by making a subsequent call to Files API that describes
+     * high-level concepts and information about the service.
+     *
+     * The Guides are available in the Playground now under the
+     * Guides menu.
+     */
+    rpc Guides (GuidesRequest) returns (GuidesResponse);
+
+    /**
+     * <div class="optional">optional</div>
+     * The `ReservationAdded` RPC is called by the Service Manager when a
+     * service gets reserved. The request contains session information
+     * and a per reserve call user-data field.
+     */
+    rpc ReservationAdded (ReservationAddedRequest) returns (ReservationAddedResponse);
+
+    /**
+     * <div class="optional">optional</div>
+     * The `ReservationReleased` RPC is called by the Service Manager
+     * when a service is released. This RPC can be used as a clean-up
+     * routine so that the instance can be recycled to another
+     * reservation. If the method returns `RESTART` status, the
+     * service is killed at release, resulting in a service that does not
+     * get recycled.
+     */
+    rpc ReservationReleased (ReservationReleasedRequest) returns (ReservationReleasedResponse);
+}

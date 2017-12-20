@@ -1,0 +1,9 @@
+{
+  "name": "quantum-microservice-python",
+  "version": "1.0.0",
+  "repository": {
+    "type": "git",
+    "url": "https://git.autodesk.com/Quantum/quantum-microservice-python"
+  },
+  "license": "UNLICENSED"
+}
