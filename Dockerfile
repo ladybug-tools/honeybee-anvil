@@ -14,7 +14,8 @@ COPY ./proto ./proto
 COPY ./anvilCore ./anvilCore
 COPY ./ladybug ./ladybug
 COPY ./honeybee ./honeybee
-COPY ./radiance /usr/local/radiance
+COPY ./radiance/bin /usr/local/bin
+COPY ./radiance/lib /usr/local/lib/ray
 
 
 EXPOSE 50001

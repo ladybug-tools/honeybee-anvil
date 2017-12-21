@@ -34,7 +34,7 @@
    ```
    $ npm install -g grpcc
    $ grpcc --proto ./proto/honeybee.proto --address 127.0.0.1:50001 -i
-   RunRecipe@127.0.0.1:50001> client.run({"id": 0, "hoys": [10, 11, 12], "location": { "city": "-", "latitude": 40.7128, "longitude": 74.0060, "time_zone": 5, "elevation": 33}, "analysis_grids": {"analysis_points": [{"direction": {"x": 0, "y": 0, "z": 1}, "location": {"x": 0, "y": 0, "z": 0}}]}}, pr)
+   RunRecipe@127.0.0.1:50001> client.run({"id": 0, "hoys": [10, 11, 12], "location": { "city": "-", "latitude": 40.7128, "longitude": 74.0060, "time_zone": 5, "elevation": 33}, "analysis_grids": [{"analysis_points": [{"direction": {"x": 0, "y": 0, "z": 1}, "location": {"x": 0, "y": 0, "z": 0}}]}]}, pr)
    EventEmitter{}
    RunRecipe@127.0.0.1:50001>
    {
